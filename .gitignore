@@ -1,0 +1,7 @@
+backend/node_modules/
+backend/test/
+backend/package-lock.json
+frontend/node_modules/
+frontend/package-lock.json
+
+generate.js
