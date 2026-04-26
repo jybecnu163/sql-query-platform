@@ -23,9 +23,9 @@
 确保已安装 Node.js（v16+），然后：
 
 ```bash
-git clone https://github.com/jybecnu163/dot.git
+git clone https://github.com/jybecnu163/sql-query-platform.git
 
-cd dot
+cd sql-query-platform
 
 ### 2. 启动后端
 ```bash
