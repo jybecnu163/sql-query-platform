@@ -1,3 +1,4 @@
+// src/components/MainLayout.jsx
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Box, AppBar, Toolbar, Typography, IconButton, Drawer, Select, MenuItem, FormControl } from '@mui/material';
