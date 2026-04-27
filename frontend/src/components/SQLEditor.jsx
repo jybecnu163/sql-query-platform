@@ -22,25 +22,52 @@ const SQLEditor = () => {
     dispatch(changeQuery(value));
   };
   const [aiOpen, setAiOpen] = useState(false);  // 新增状态
+
+  // 智能提取 SQL 语句
   const handleExecute = async () => {
     const editor = editorRef.current?.editor;
     if (!editor) return;
 
-    // 1. 获取选中的文本
-    let sqlToExecute = '';
-    const selectedText = editor.getSelectedText();
-    if (selectedText && selectedText.trim()) {
-      sqlToExecute = selectedText;
-    } else {
-      // 2. 没有选中时，获取光标所在行的内容
-      const cursor = editor.getCursorPosition();
-      const session = editor.getSession();
-      const line = session.getLine(cursor.row);
-      sqlToExecute = line;
+    // 1. 优先检查是否有选中的文本
+    let selectedText  = editor.getSelectedText()?.trim();
+    if (selectedText ) {
+      // 有选中文本，直接执行
+      executeSql(selectedText );
+      return;
+    }
 
-      // 如果当前行为空，则不做任何操作
-      if (!sqlToExecute.trim()) {
-        console.log('当前行为空，不执行');
+    // 无选中：基于光标位置提取完整 SQL 语句（以分号分隔）
+    const session = editor.getSession();
+    const fullText = session.getValue();
+    const cursor = editor.getCursorPosition(); // { row, column }
+    // 计算光标在全文中的字符索引
+    let charIndex = 0;
+    const lines = fullText.split('\n');
+    for (let i = 0; i < cursor.row; i++) {
+      charIndex += lines[i].length + 1; // +1 换行符
+    }
+    charIndex += cursor.column;
+
+    // 查找前一个分号位置（语句开始）
+    let start = 0;
+    const lastSemicolon = fullText.lastIndexOf(';', charIndex - 1);
+    if (lastSemicolon !== -1) {
+      start = lastSemicolon + 1; // 分号后第一个字符
+    }
+    // 查找下一个分号位置（语句结束）
+    let end = fullText.length;
+    const nextSemicolon = fullText.indexOf(';', charIndex);
+    if (nextSemicolon !== -1) {
+      end = nextSemicolon; // 不包含分号
+    }
+
+    let sqlToExecute = fullText.substring(start, end).trim();
+    if (!sqlToExecute) {
+      // 如果提取为空，降级到光标所在行
+      const currentLine = lines[cursor.row] || '';
+      sqlToExecute = currentLine.trim();
+      if (!sqlToExecute) {
+        console.log('当前行无有效 SQL，不执行');
         return;
       }
     }
@@ -51,10 +78,14 @@ const SQLEditor = () => {
       sqlToExecute = sqlToExecute.substring(0, sqlToExecute.length - 1);
     }
 
+    executeSql(sqlToExecute);
+  };
 
+  // 将执行逻辑抽取为独立函数，避免重复
+  const executeSql = async (sql) => {
     try {
       const res = await api.post('/rest/query/submit', {
-        hql: sqlToExecute,
+        hql: sql,
         execMode: 'HIVE',
         roleName: 'default',
         isPersonal: false,
@@ -62,11 +93,14 @@ const SQLEditor = () => {
       });
       if (res.data.success) {
         const { id } = res.data.data;
-        dispatch(executeQuerySuccess({ id, tabId, sql: sqlToExecute, engine: datasource.toUpperCase(), role: 'default' }));
+        dispatch(executeQuerySuccess({ id, tabId, sql, engine: 'HIVE', role: 'default' }));
         pollResult(id, tabId);
+      } else {
+        console.error('提交失败:', res.data.msg);
+        // 可添加用户提示
       }
     } catch (err) {
-      console.error(err);
+      console.error('执行请求失败:', err);
     }
   };
 
