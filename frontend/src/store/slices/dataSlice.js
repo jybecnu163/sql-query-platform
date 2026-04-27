@@ -3,7 +3,8 @@ import { createSlice } from '@reduxjs/toolkit';
 const initialState = {
   datasource: 'mysql',   // 当前数据源: 'hive' 或 'mysql'
   elementData: [],
-  favoriteTreeData: []
+  favoriteTreeData: [],
+  selectedTable: null,  // 新增：{ database, table, columns? }
 };
 
 const dataSlice = createSlice({
@@ -15,7 +16,8 @@ const dataSlice = createSlice({
     },
     setElementData: (state, action) => {
       state.elementData = action.payload;
-    }
+    },
+    setSelectedTable: (state, action) => { state.selectedTable = action.payload; }  // 新增
   }
 });
 

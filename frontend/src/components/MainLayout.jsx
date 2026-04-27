@@ -15,7 +15,6 @@ const drawerWidth = 280;
 export default function MainLayout() {
   const dispatch = useDispatch();
   const datasource = useSelector(state => state.data.datasource);
-  const activeIndex = useSelector(state => state.main.activeIndex);
   const [drawerOpen, setDrawerOpen] = useState(true);
 
   // 当数据源切换时，将当前活动标签页的 SQL 改为对应默认值

@@ -3,13 +3,16 @@ import userReducer from './slices/userSlice';
 import mainReducer from './slices/mainSlice';
 import dataReducer from './slices/dataSlice';
 import historyReducer from './slices/historySlice';
+import focusedTablesReducer from './slices/focusedTablesSlice';
+
 
 export default configureStore({
   reducer: {
     user: userReducer,
     main: mainReducer,
     data: dataReducer,
-    history: historyReducer
+    history: historyReducer,
+    focusedTables: focusedTablesReducer
   }
 });
 

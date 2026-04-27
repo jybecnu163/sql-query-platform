@@ -6,6 +6,7 @@ const queryRoutes = require('./routes/query');
 const fileRoutes = require('./routes/file');
 const userRoutes = require('./routes/user');
 const engineRoleRoutes = require('./routes/engineRole');
+const ollamaRoutes = require('./routes/ollama')
 
 const app = express();
 // 替换原有的 app.use(cors()) 为以下配置
@@ -27,6 +28,7 @@ app.use('/rest/query', queryRoutes);
 app.use('/rest/file', fileRoutes);
 app.use('/rest/currentUser', userRoutes);
 app.use('/rest/enginerole', engineRoleRoutes);
+app.use('/rest/ollama', ollamaRoutes);// 挂载 Ollama 路由
 
 const PORT = 3001;
 app.listen(PORT, () => {

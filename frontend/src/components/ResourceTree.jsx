@@ -8,7 +8,7 @@ import TableChartIcon from '@mui/icons-material/TableChart';
 import { Box, Typography, CircularProgress } from '@mui/material';
 import api from '../services/api';
 import { setElementData } from '../store/slices/dataSlice';
-// 在组件顶部导入需要的 action
+import { addTable } from '../store/slices/focusedTablesSlice'; // 导入 addTable
 import { appendSqlToCurrent } from '../store/slices/mainSlice';
 
 const ResourceTree = () => {
@@ -58,6 +58,20 @@ const ResourceTree = () => {
     }
   };
 
+    // 获取表字段信息（复用已有接口）
+  const fetchTableColumns = async (datasource, database, tableName) => {
+    try {
+      const res = await api.get(`/rest/table/showColumns/${datasource}/${database}/${tableName}`);
+      if (res.data.success) {
+        return res.data.data; // [{ name, type }]
+      }
+      return [];
+    } catch (err) {
+      console.error('获取字段失败:', err);
+      return [];
+    }
+  };
+
   // 处理双击：加载表数据并展开节点
   const handleDoubleClick = (dbName) => {
     fetchTables(dbName);
@@ -81,10 +95,17 @@ const ResourceTree = () => {
   }
 
   // 处理双击表名
-  const handleTableDoubleClick = (dbName, tableName) => {
+  const handleTableDoubleClick = async (dbName, tableName) => {
     // 根据数据源拼接 SELECT 语句，格式：SELECT * FROM 库名.表名
     const selectSql = `SELECT * FROM ${dbName}.${tableName};`;
     dispatch(appendSqlToCurrent(selectSql));
+    /** 上面双击添加语句到编写栏，下面为添加到关注列表，用于AI */
+    // 获取字段信息
+    const columns = await fetchTableColumns(datasource, dbName, tableName);
+    // 添加到 Redux
+    dispatch(addTable({ database: dbName, tableName, columns }));
+    // 可选：提示用户已添加
+    console.log(`已将 ${dbName}.${tableName} 添加到关注表列表`);
   };
 
   return (

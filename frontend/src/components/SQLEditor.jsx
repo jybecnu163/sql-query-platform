@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import AceEditor from 'react-ace';
 import 'ace-builds/src-noconflict/mode-mysql';
@@ -8,7 +8,7 @@ import { Button, Box } from '@mui/material';
 import { format as sqlFormat } from 'sql-formatter';
 import { changeQuery, executeQuerySuccess, updateTaskResult } from '../store/slices/mainSlice';
 import api from '../services/api';
-
+import AIAssistant from './AIAssistant';  // 新增导入
 
 const SQLEditor = () => {
   // 在组件内部
@@ -21,7 +21,7 @@ const SQLEditor = () => {
   const handleChange = (value) => {
     dispatch(changeQuery(value));
   };
-
+  const [aiOpen, setAiOpen] = useState(false);  // 新增状态
   const handleExecute = async () => {
     const editor = editorRef.current?.editor;
     if (!editor) return;
@@ -139,7 +139,13 @@ const SQLEditor = () => {
         <Button variant="contained" color="secondary" onClick={handleFormat}>
           格式化
         </Button>
+        {/* 新增问 AI 按钮 */}
+        <Button variant="contained" color="info" onClick={() => setAiOpen(true)}>
+          问 AI
+        </Button>
       </Box>
+      {/* AI 助手浮层 */}
+      <AIAssistant open={aiOpen} onClose={() => setAiOpen(false)} />
     </Box>
   );
 };
