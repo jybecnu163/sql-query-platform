@@ -1,6 +1,6 @@
 # SQL 查询平台
 
-一个基于 React + Node.js 的 Web SQL 查询工具，支持多标签编辑、语法高亮、数据源浏览、查询结果展示与导出、查询历史记录等功能。
+一个基于 React + Node.js 的 Web SQL 查询工具，支持hive/mysql、数据源浏览、快捷sql、问AI以及AI生成sql快捷使用等功能。
 
 ## 技术栈
 
@@ -58,6 +58,8 @@ npm start
 ✅ 支持当前行和选定代码执行
 ✅ 支持代码格式化
 ✅ 结果分页展示
+✅ 支持AI辅助
+✅ 支持AI语音交互
 
 
 ### 7. API 接口
@@ -104,7 +106,8 @@ Q: 如何支持更多 SQL 语言？
 A: // src/components/MainLayout.jsx 中下拉列表并后端新增查询引擎
 
 ### 11. 更新
-    - 支持本地ollama问答与sql 语句到编写框
+    - 支持本地ollama问答与 sql 语句到编写框
+    - AI语音交互
 
 ### 12. License
 MIT

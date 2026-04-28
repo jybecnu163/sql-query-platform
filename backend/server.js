@@ -9,12 +9,16 @@ const engineRoleRoutes = require('./routes/engineRole');
 const ollamaRoutes = require('./routes/ollama')
 
 const app = express();
-// 替换原有的 app.use(cors()) 为以下配置
-app.use(cors({
-  origin: 'http://localhost:3000',
-  credentials: true,
-}));
+// // 替换原有的 app.use(cors()) 为以下配置
+// app.use(cors({
+//   origin: 'http://localhost:3000',
+//   credentials: true,
+// }));
 
+app.use(cors({
+  origin: true,      // 动态返回请求的源
+  credentials: true
+}));
 app.use(bodyParser.json());
 
 // 模拟登录用户

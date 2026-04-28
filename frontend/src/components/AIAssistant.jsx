@@ -9,6 +9,11 @@ import SendIcon from '@mui/icons-material/Send';
 import api from '../services/api';
 import { appendSqlToCurrent } from '../store/slices/mainSlice';
 import { clearAll, removeTable } from '../store/slices/focusedTablesSlice';
+import MicIcon from '@mui/icons-material/Mic';      // 新增
+import StopIcon from '@mui/icons-material/Stop';    // 新增
+// // 检查浏览器是否支持语音识别
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+const supportsSpeechRecognition = !!SpeechRecognition;
 
 const AIAssistant = ({ open, onClose }) => {
   const dispatch = useDispatch();
@@ -52,6 +57,60 @@ const AIAssistant = ({ open, onClose }) => {
         .catch(err => console.error('获取模型列表失败:', err));
     }
   }, [open, selectedModel]);
+
+
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef(null);
+
+  // 初始化语音识别
+  useEffect(() => {
+    if (!supportsSpeechRecognition) return;
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;      // 单次识别
+    recognition.interimResults = false;  // 只返回最终结果
+    recognition.lang = 'zh-CN';          // 中文
+    recognition.maxAlternatives = 1;
+
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      setInput(prev => prev + transcript); // 追加到输入框
+      setIsListening(false);
+    };
+
+    recognition.onerror = (event) => {
+      console.error('语音识别错误:', event.error);
+      setIsListening(false);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognitionRef.current = recognition;
+  }, []);
+
+  const toggleListening = () => {
+    if (!supportsSpeechRecognition) {
+      alert('您的浏览器不支持语音识别，请使用 Chrome 或 Edge');
+      return;
+    }
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+    } else {
+      recognitionRef.current?.start();
+      setIsListening(true);
+    }
+  };
+
+  // 清理
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.abort();
+      }
+    };
+  }, []);
 
   // 滚动到底部
   useEffect(() => {
@@ -166,6 +225,7 @@ const AIAssistant = ({ open, onClose }) => {
         )}
         <div ref={messagesEndRef} />
       </List>
+
       <Box display="flex" gap={1} mt={2}>
         <TextField
           fullWidth
@@ -177,7 +237,16 @@ const AIAssistant = ({ open, onClose }) => {
           onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
           disabled={loading}
         />
-        <IconButton color="primary" onClick={sendMessage} disabled={loading}><SendIcon /></IconButton>
+        <IconButton
+          color={isListening ? 'error' : 'primary'}
+          onClick={toggleListening}
+          disabled={loading}
+        >
+          {isListening ? <StopIcon /> : <MicIcon />}
+        </IconButton>
+        <IconButton color="primary" onClick={sendMessage} disabled={loading}>
+          <SendIcon />
+        </IconButton>
       </Box>
     </Drawer>
   );
