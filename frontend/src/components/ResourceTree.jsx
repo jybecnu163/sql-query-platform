@@ -1,4 +1,3 @@
-// src\components\ResourceTree.jsx
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { TreeView, TreeItem } from '@mui/lab';
@@ -8,75 +7,52 @@ import StorageIcon from '@mui/icons-material/Storage';
 import TableChartIcon from '@mui/icons-material/TableChart';
 import { Box, Typography, CircularProgress } from '@mui/material';
 import api from '../services/api';
-import { addTable } from '../store/slices/focusedTablesSlice'; // 导入 addTable
+import { addTable } from '../store/slices/focusedTablesSlice';
 import { appendSqlToCurrent } from '../store/slices/mainSlice';
-// 导入新的 action
-import { setElementData, setTablesData, clearTablesData } from '../store/slices/dataSlice';
-
+import { setFullMetadata, setColumnsData, clearTablesData } from '../store/slices/dataSlice';
 
 const ResourceTree = () => {
   const dispatch = useDispatch();
   const datasource = useSelector(state => state.data.datasource);
-  const [databases, setDatabases] = useState([]);
-  const [tables, setTables] = useState({});
+  const databases = useSelector(state => state.data.elementData);
+  const tablesData = useSelector(state => state.data.tablesData);
+  const columnsData = useSelector(state => state.data.columnsData); // 新增
   const [loading, setLoading] = useState(false);
-  const [expanded, setExpanded] = useState([]); // 存储展开的库名
+  const [expanded, setExpanded] = useState([]);
 
-  useEffect(() => {
-    fetchDatabases();
-    setTables({});
-    setExpanded([]);
-  }, [datasource]);
-
-  const fetchDatabases = async () => {
+  // 加载完整元数据（一次性获取所有库、表、字段）
+  const loadFullMetadata = async () => {
     setLoading(true);
     try {
-      const res = await api.get(`/rest/table/showDatabases/${datasource}`);
+      const res = await api.get(`/rest/table/full-metadata/${datasource}`);
       if (res.data.success) {
-        const dbList = Array.isArray(res.data.data) ? res.data.data : [];
-        setDatabases(dbList);
-        dispatch(setElementData(dbList));
+        dispatch(setFullMetadata(res.data.data));
       } else {
-        console.error('后端返回失败:', res.data.msg);
-        setDatabases([]);
+        console.error('获取完整元数据失败:', res.data.msg);
       }
     } catch (err) {
-      console.error('请求数据库列表失败:', err);
-      setDatabases([]);
+      console.error('请求完整元数据失败:', err);
     }
     setLoading(false);
   };
 
-  const fetchTables = async (dbName) => {
-    if (tables[dbName]) return;
-    try {
-      const res = await api.get(`/rest/table/showTables/${datasource}/${dbName}`);
-      if (res.data.success) {
-        const tableList = Array.isArray(res.data.data) ? res.data.data : [];
-        setTables(prev => ({ ...prev, [dbName]: tableList }));
-        // 将表数据存入 Redux
-        dispatch(setTablesData({ database: dbName, tables: tableList }));
-      }
-    } catch (err) {
-      console.error(err);
-      setTables(prev => ({ ...prev, [dbName]: [] }));
-    }
-  };
-
-  // 在数据源切换时清空 Redux 中的表数据
+  // 切换数据源时重新加载
   useEffect(() => {
-    fetchDatabases();
-    setTables({});
+    loadFullMetadata();
     setExpanded([]);
-    dispatch(clearTablesData());  // 清空表数据
-  }, [datasource, dispatch]);
+    dispatch(clearTablesData());
+  }, [datasource]);
 
-  // 获取表字段信息（复用已有接口）
-  const fetchTableColumns = async (datasource, database, tableName) => {
+  // 获取字段信息（用于双击表）
+  const fetchTableColumns = async (dbName, tableName, colsData) => {
+    const key = `${dbName}.${tableName}`;
+    const existing = colsData[key];
+    if (existing) return existing;
     try {
-      const res = await api.get(`/rest/table/showColumns/${datasource}/${database}/${tableName}`);
+      const res = await api.get(`/rest/table/showColumns/${datasource}/${dbName}/${tableName}`);
       if (res.data.success) {
-        return res.data.data; // [{ name, type }]
+        dispatch(setColumnsData({ tableKey: key, columns: res.data.data }));
+        return res.data.data;
       }
       return [];
     } catch (err) {
@@ -85,16 +61,33 @@ const ResourceTree = () => {
     }
   };
 
-  // 处理双击：加载表数据并展开节点
+  // 生成带别名和所有字段的 SELECT 语句
+  const generateSelectSql = (dbName, tableName, columns) => {
+    if (!columns || columns.length === 0) {
+      return `SELECT * FROM ${dbName}.${tableName};`;
+    }
+    const alias = 'a';
+    const fieldList = columns.map(col => `${alias}.${col.name}`).join(', ');
+    return `SELECT ${fieldList} FROM ${dbName}.${tableName} AS ${alias};`;
+  };
+
+  // 双击表名
+  const handleTableDoubleClick = async (dbName, tableName) => {
+    const columns = await fetchTableColumns(dbName, tableName, columnsData);
+ 
+    const selectSql = generateSelectSql(dbName, tableName, columns);
+    dispatch(appendSqlToCurrent(selectSql));
+    dispatch(addTable({ database: dbName, tableName, columns }));
+    console.log(`已将 ${dbName}.${tableName} 添加到关注表列表并生成 SELECT`);
+  };
+
+  // 双击数据库：仅展开，无需额外加载（因为元数据已预先加载）
   const handleDoubleClick = (dbName) => {
-    fetchTables(dbName);
-    // 如果当前节点不在展开列表中，则添加
     if (!expanded.includes(dbName)) {
       setExpanded(prev => [...prev, dbName]);
     }
   };
 
-  // 处理展开/折叠（由 TreeView 控制）
   const handleToggle = (event, nodeIds) => {
     setExpanded(nodeIds);
   };
@@ -106,20 +99,6 @@ const ResourceTree = () => {
       </Box>
     );
   }
-
-  // 处理双击表名
-  const handleTableDoubleClick = async (dbName, tableName) => {
-    // 根据数据源拼接 SELECT 语句，格式：SELECT * FROM 库名.表名
-    const selectSql = `SELECT * FROM ${dbName}.${tableName};`;
-    dispatch(appendSqlToCurrent(selectSql));
-    /** 上面双击添加语句到编写栏，下面为添加到关注列表，用于AI */
-    // 获取字段信息
-    const columns = await fetchTableColumns(datasource, dbName, tableName);
-    // 添加到 Redux
-    dispatch(addTable({ database: dbName, tableName, columns }));
-    // 可选：提示用户已添加
-    console.log(`已将 ${dbName}.${tableName} 添加到关注表列表`);
-  };
 
   return (
     <Box sx={{ p: 2 }}>
@@ -138,16 +117,15 @@ const ResourceTree = () => {
             icon={<StorageIcon />}
             onDoubleClick={() => handleDoubleClick(db.database)}
           >
-            {tables[db.database]?.map(tbl => (
+            {(tablesData[db.database] || []).map(tableName => (
               <TreeItem
-                key={tbl.table}
-                nodeId={`${db.database}/${tbl.table}`}
-                label={tbl.table}
+                key={tableName}
+                nodeId={`${db.database}/${tableName}`}
+                label={tableName}
                 icon={<TableChartIcon />}
-                onDoubleClick={() => handleTableDoubleClick(db.database, tbl.table)}
+                onDoubleClick={() => handleTableDoubleClick(db.database, tableName)}
               />
             ))}
-
           </TreeItem>
         ))}
       </TreeView>

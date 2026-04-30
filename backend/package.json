@@ -13,6 +13,7 @@
     "hive-driver": "^1.0.0",
     "json2csv": "^6.0.0-alpha.2",
     "mysql2": "^3.22.2",
+    "node-cache": "^5.1.2",
     "thrift": "^0.22.0",
     "uuid": "^9.0.0"
   }

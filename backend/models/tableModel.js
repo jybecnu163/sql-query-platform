@@ -1,5 +1,23 @@
 const { mysqlPool, executeHiveQuery } = require('../config/db');
 
+
+// 获取 MySQL 所有数据库、表、字段（一次性）
+async function getMySQLFullMetadata() {
+  const sql = `
+    SELECT 
+      TABLE_SCHEMA AS \`db\`,
+      TABLE_NAME AS \`table\`,
+      COLUMN_NAME AS \`column\`,
+      DATA_TYPE AS \`type\`
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA NOT IN ('information_schema', 'mysql', 'performance_schema', 'sys')
+    ORDER BY \`db\`, \`table\`, ORDINAL_POSITION
+  `;
+  const [rows] = await mysqlPool.query(sql);
+  return rows;
+}
+
+
 // 获取 MySQL 数据库列表
 async function getMySQLDatabases() {
   const [rows] = await mysqlPool.query('SHOW DATABASES');
@@ -46,5 +64,6 @@ module.exports = {
   getMySQLTables,
   getHiveTables,
   getMySQLColumns,
-  getHiveColumns
+  getHiveColumns,
+  getMySQLFullMetadata
 };

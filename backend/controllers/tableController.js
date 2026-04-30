@@ -1,4 +1,17 @@
+// controllers\tableController.js
 const tableService = require('../services/tableService');
+ 
+// 新增：获取完整元数据
+exports.getFullMetadata = async (req, res, next) => {
+  try {
+    const { datasource } = req.params;
+    const result = await tableService.getFullMetadata(datasource);
+    res.json(result);
+  } catch (err) {
+    console.error('Controller error:', err);
+    res.status(500).json({ success: false, msg: '服务器内部错误', data: [] });
+  }
+};
 
 exports.showDatabases = async (req, res, next) => {
   try {
