@@ -106,8 +106,7 @@ Q: 如何支持更多 SQL 语言？
 A: // src/components/MainLayout.jsx 中下拉列表并后端新增查询引擎
 
 ### 11. 更新
-    - 支持本地ollama问答与 sql 语句到编写框
-    - AI语音交互
+![filename](todo.MD 'TODO')
 
 ### 12. License
 MIT
