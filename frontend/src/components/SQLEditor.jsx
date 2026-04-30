@@ -1,4 +1,5 @@
-import React, { useRef, useEffect, useState } from 'react';
+// src\components\SQLEditor.jsx
+import React, { useRef, useEffect, useCallback, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import AceEditor from 'react-ace';
 import 'ace-builds/src-noconflict/mode-mysql';
@@ -9,6 +10,8 @@ import { format as sqlFormat } from 'sql-formatter';
 import { changeQuery, executeQuerySuccess, updateTaskResult } from '../store/slices/mainSlice';
 import api from '../services/api';
 import AIAssistant from './AIAssistant';  // 新增导入
+import ace from 'ace-builds';
+import 'ace-builds/src-noconflict/ext-language_tools';
 
 const SQLEditor = () => {
   // 在组件内部
@@ -23,16 +26,54 @@ const SQLEditor = () => {
   };
   const [aiOpen, setAiOpen] = useState(false);  // 新增状态
 
+  const handleExecuteOrStop = () => {
+    if (isRunning) {
+      handleStop();
+    } else {
+      handleExecute();
+    }
+  };
+
+
+  // 在组件内部，获取当前活动任务是否正在运行
+  const activeTask = useSelector(state => {
+    const { querys, activeIndex } = state.main;
+    const query = querys[activeIndex];
+    if (query && query.tasks.length > 0) {
+      return query.tasks[query.activeTask];
+    }
+    return null;
+  });
+  const isRunning = activeTask?.status === 'RUNNING';
+
+  const handleStop = async () => {
+    if (!activeTask?.id) return;
+    try {
+      await api.get(`/rest/query/stop/${activeTask.id}`);
+      dispatch(updateTaskResult({
+        taskId: activeTask.id,
+        status: 'STOPPED',
+        data: [],
+        columnNames: [],
+        log: ['查询已被用户停止']
+      }));
+    } catch (err) {
+      console.error('停止失败:', err);
+    }
+  };
+
   // 智能提取 SQL 语句
-  const handleExecute = async () => {
+  const handleExecute = useCallback(async () => {
+    // 如果已在运行，不允许再次执行
+    if (isRunning) return;
     const editor = editorRef.current?.editor;
     if (!editor) return;
 
     // 1. 优先检查是否有选中的文本
-    let selectedText  = editor.getSelectedText()?.trim();
-    if (selectedText ) {
+    let selectedText = editor.getSelectedText()?.trim();
+    if (selectedText) {
       // 有选中文本，直接执行
-      executeSql(selectedText );
+      executeSql(selectedText);
       return;
     }
 
@@ -79,7 +120,69 @@ const SQLEditor = () => {
     }
 
     executeSql(sqlToExecute);
+  }, [isRunning, /* 其他依赖 */]);
+
+
+  // 在组件内，获取 Redux 中的表数据
+  const tablesData = useSelector(state => state.data.tablesData);
+
+
+  // 在编辑器初始化后，设置自定义补全
+  const setupCompleters = async () => {
+    if (!editorRef.current) return;
+    const editor = editorRef.current.editor;
+    const session = editor.getSession();
+    const languageTools = ace.require('ace/ext/language_tools');
+
+    // 从 Redux 中提取所有表名（去重）
+    const allTables = [];
+    Object.values(tablesData).forEach(tableList => {
+      tableList.forEach(t => {
+        if (!allTables.find(item => item.name === t.table)) {
+          allTables.push({ name: t.table, type: 'table' });
+        }
+      });
+    });
+
+    const tableCompletions = allTables.map(t => ({
+      caption: t.name,
+      value: t.name,
+      meta: 'table',
+      score: 100
+    }));
+
+    // 静态关键字
+    const staticKeywords = ['SELECT', 'FROM', 'WHERE', 'JOIN', 'INSERT', 'UPDATE', 'DELETE', 'CREATE', 'DROP', 'ALTER', 'TABLE', 'DATABASE', 'VIEW', 'INDEX'];
+    const staticCompletions = staticKeywords.map(kw => ({
+      caption: kw,
+      value: kw,
+      meta: 'keyword',
+      score: 200
+    }));
+
+    const completers = {
+      getCompletions: (editor, session, pos, prefix, callback) => {
+        const completions = [];
+        if (prefix.length > 0) {
+          staticCompletions.forEach(c => {
+            if (c.value.toLowerCase().startsWith(prefix.toLowerCase())) completions.push(c);
+          });
+          tableCompletions.forEach(c => {
+            if (c.value.toLowerCase().startsWith(prefix.toLowerCase())) completions.push(c);
+          });
+        }
+        callback(null, completions);
+      }
+    };
+    languageTools.setCompleters([completers]);
   };
+
+  // 在 useEffect 中监听 tablesData 变化，重新设置补全（当表数据更新时）
+  useEffect(() => {
+    if (editorRef.current) {
+      setupCompleters();
+    }
+  }, [tablesData, editorRef.current]); // 依赖 tablesData
 
   // 将执行逻辑抽取为独立函数，避免重复
   const executeSql = async (sql) => {
@@ -146,9 +249,9 @@ const SQLEditor = () => {
     if (editorRef.current) {
       const editor = editorRef.current.editor;
       editor.commands.addCommand({
-        name: 'execute',
+        name: 'executeOrStop',
         bindKey: { win: 'Ctrl-Enter', mac: 'Command-Enter' },
-        exec: handleExecute
+        exec: handleExecuteOrStop
       });
     }
   }, [handleExecute]);
@@ -167,8 +270,8 @@ const SQLEditor = () => {
         setOptions={{ enableBasicAutocompletion: true, enableLiveAutocompletion: true }}
       />
       <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
-        <Button variant="contained" color="primary" onClick={handleExecute}>
-          执行 (Ctrl+Enter)
+        <Button variant="contained" color={isRunning ? "error" : "primary"} onClick={handleExecuteOrStop}>
+          {isRunning ? "停止查询" : "执行 (Ctrl+Enter)"}
         </Button>
         <Button variant="contained" color="secondary" onClick={handleFormat}>
           格式化
@@ -180,7 +283,7 @@ const SQLEditor = () => {
       </Box>
       {/* AI 助手浮层 */}
       <AIAssistant open={aiOpen} onClose={() => setAiOpen(false)} />
-    </Box>
+    </Box >
   );
 };
 

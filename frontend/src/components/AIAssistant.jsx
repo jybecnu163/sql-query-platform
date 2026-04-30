@@ -182,6 +182,29 @@ const AIAssistant = ({ open, onClose }) => {
         </Select>
       </FormControl>
 
+
+
+      <List sx={{ flexGrow: 1, overflow: 'auto', maxHeight: 'calc(100vh - 380px)', mt: 1 }}>
+        {messages.map((msg, idx) => (
+          <ListItem key={idx} alignItems="flex-start" sx={{ flexDirection: 'column', bgcolor: msg.role === 'user' ? '#f5f5f5' : 'white', borderRadius: 2, mb: 1 }}>
+            <Typography variant="subtitle2" color="primary">{msg.role === 'user' ? '我' : 'AI'}</Typography>
+            <ListItemText
+              primary={msg.content.split('\n').map((line, i) => <span key={i}>{line}<br /></span>)}
+              onDoubleClick={() => handleDoubleClick(msg.content)}
+              sx={{ cursor: 'pointer', whiteSpace: 'pre-wrap' }}
+            />
+          </ListItem>
+        ))}
+        {loading && (
+          <ListItem>
+            <CircularProgress size={24} />
+            <Typography variant="body2" sx={{ ml: 2 }}>AI 正在思考...</Typography>
+          </ListItem>
+        )}
+        <div ref={messagesEndRef} />
+      </List>
+
+
       <Divider sx={{ my: 1 }} />
       <Box display="flex" justifyContent="space-between" alignItems="center">
         <Typography variant="subtitle2">关注表列表</Typography>
@@ -205,27 +228,6 @@ const AIAssistant = ({ open, onClose }) => {
         )}
       </List>
       <Divider sx={{ my: 1 }} />
-
-      <List sx={{ flexGrow: 1, overflow: 'auto', maxHeight: 'calc(100vh - 380px)', mt: 1 }}>
-        {messages.map((msg, idx) => (
-          <ListItem key={idx} alignItems="flex-start" sx={{ flexDirection: 'column', bgcolor: msg.role === 'user' ? '#f5f5f5' : 'white', borderRadius: 2, mb: 1 }}>
-            <Typography variant="subtitle2" color="primary">{msg.role === 'user' ? '我' : 'AI'}</Typography>
-            <ListItemText
-              primary={msg.content.split('\n').map((line, i) => <span key={i}>{line}<br /></span>)}
-              onDoubleClick={() => handleDoubleClick(msg.content)}
-              sx={{ cursor: 'pointer', whiteSpace: 'pre-wrap' }}
-            />
-          </ListItem>
-        ))}
-        {loading && (
-          <ListItem>
-            <CircularProgress size={24} />
-            <Typography variant="body2" sx={{ ml: 2 }}>AI 正在思考...</Typography>
-          </ListItem>
-        )}
-        <div ref={messagesEndRef} />
-      </List>
-
       <Box display="flex" gap={1} mt={2}>
         <TextField
           fullWidth

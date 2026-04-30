@@ -1,3 +1,4 @@
+// src\components\ResourceTree.jsx
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { TreeView, TreeItem } from '@mui/lab';
@@ -7,9 +8,11 @@ import StorageIcon from '@mui/icons-material/Storage';
 import TableChartIcon from '@mui/icons-material/TableChart';
 import { Box, Typography, CircularProgress } from '@mui/material';
 import api from '../services/api';
-import { setElementData } from '../store/slices/dataSlice';
 import { addTable } from '../store/slices/focusedTablesSlice'; // 导入 addTable
 import { appendSqlToCurrent } from '../store/slices/mainSlice';
+// 导入新的 action
+import { setElementData, setTablesData, clearTablesData } from '../store/slices/dataSlice';
+
 
 const ResourceTree = () => {
   const dispatch = useDispatch();
@@ -51,6 +54,8 @@ const ResourceTree = () => {
       if (res.data.success) {
         const tableList = Array.isArray(res.data.data) ? res.data.data : [];
         setTables(prev => ({ ...prev, [dbName]: tableList }));
+        // 将表数据存入 Redux
+        dispatch(setTablesData({ database: dbName, tables: tableList }));
       }
     } catch (err) {
       console.error(err);
@@ -58,7 +63,15 @@ const ResourceTree = () => {
     }
   };
 
-    // 获取表字段信息（复用已有接口）
+  // 在数据源切换时清空 Redux 中的表数据
+  useEffect(() => {
+    fetchDatabases();
+    setTables({});
+    setExpanded([]);
+    dispatch(clearTablesData());  // 清空表数据
+  }, [datasource, dispatch]);
+
+  // 获取表字段信息（复用已有接口）
   const fetchTableColumns = async (datasource, database, tableName) => {
     try {
       const res = await api.get(`/rest/table/showColumns/${datasource}/${database}/${tableName}`);

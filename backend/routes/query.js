@@ -2,7 +2,7 @@ const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { executeHiveQuery, executeMySQLQuery } = require('../config/db');
 const router = express.Router();
-
+const json2csv = require('json2csv').parse; // 需要安装: npm install json2csv
 const tasks = new Map();
 
 router.post('/submit', async (req, res) => {
@@ -11,10 +11,10 @@ router.post('/submit', async (req, res) => {
 
   // 根据数据源选择执行器
   let executeFunc;
-  if (datasource === 'mysql') {
-    executeFunc = executeMySQLQuery;
-  } else {
+  if (datasource === 'hive') {
     executeFunc = executeHiveQuery;
+  } else {
+    executeFunc = executeMySQLQuery;
   }
 
   // 存储任务初始状态
@@ -28,6 +28,9 @@ router.post('/submit', async (req, res) => {
 
   // 异步执行真实查询
   executeFunc(hql).then(result => {
+    // 模拟查询时间耗时10s
+  setTimeout(() => { console.log("This is the final function") }, 5000);
+
     const task = tasks.get(queryId);
     if (task && task.status === 'RUNNING') {
       task.status = 'FINISHED';
@@ -89,6 +92,7 @@ router.get('/result/:queryId', (req, res) => {
   if (!task) {
     return res.json({ success: false, msg: '任务不存在' });
   }
+
   res.json({
     success: true,
     data: {
@@ -105,9 +109,37 @@ router.get('/stop/:queryId', (req, res) => {
   const task = tasks.get(queryId);
   if (task && task.status === 'RUNNING') {
     task.status = 'STOPPED';
+    // todo
     task.log.push('Query stopped by user');
   }
   res.json({ success: true });
+});
+
+// 导出结果为 CSV
+router.get('/export/:queryId', async (req, res) => {
+  const queryId = parseInt(req.params.queryId);
+  const task = tasks.get(queryId);
+  if (!task || task.status !== 'FINISHED') {
+    return res.status(404).json({ success: false, message: '任务未完成或不存在' });
+  }
+  const { columnNames, resultData } = task;
+  if (!columnNames || !resultData) {
+    return res.status(400).json({ success: false, message: '无数据可导出' });
+  }
+  // 转换为对象数组
+  const records = resultData.map(row => {
+    const obj = {};
+    columnNames.forEach((col, idx) => { obj[col] = row[idx]; });
+    return obj;
+  });
+  try {
+    const csv = json2csv(records, { fields: columnNames });
+    res.setHeader('Content-disposition', `attachment; filename=query_${queryId}.csv`);
+    res.setHeader('Content-type', 'text/csv');
+    res.send(csv);
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
 module.exports = router;

@@ -1,10 +1,12 @@
+// src/store/slices/dataSlice.js
 import { createSlice } from '@reduxjs/toolkit';
 
 const initialState = {
-  datasource: 'mysql',   // 当前数据源: 'hive' 或 'mysql'
+  datasource: 'mysql',
   elementData: [],
   favoriteTreeData: [],
-  selectedTable: null,  // 新增：{ database, table, columns? }
+  tablesData: {},         // 存储每个数据库的表列表 { database: [ { table, ... } ] }
+  selectedTable: null,
 };
 
 const dataSlice = createSlice({
@@ -17,9 +19,18 @@ const dataSlice = createSlice({
     setElementData: (state, action) => {
       state.elementData = action.payload;
     },
-    setSelectedTable: (state, action) => { state.selectedTable = action.payload; }  // 新增
+    setSelectedTable: (state, action) => {
+      state.selectedTable = action.payload;
+    },
+    setTablesData: (state, action) => {
+      const { database, tables } = action.payload;
+      state.tablesData[database] = tables;
+    },
+    clearTablesData: (state) => {
+      state.tablesData = {};
+    }
   }
 });
 
-export const { setDatasource, setElementData } = dataSlice.actions;
+export const { setDatasource, setElementData, setSelectedTable, setTablesData, clearTablesData } = dataSlice.actions;
 export default dataSlice.reducer;
